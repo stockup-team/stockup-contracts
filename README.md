@@ -8,6 +8,7 @@ With using [Truffle framework](http://truffleframework.com/). Powered by [Ethere
 
 ### Requirements  
 
+- Linux (for run bash scripts)
 - Node v10.15.3
 - NPM v6.9.0
 
