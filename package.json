@@ -30,6 +30,7 @@
   },
   "homepage": "https://gitlab.com/stockupteam/stockup-contracts#readme",
   "devDependencies": {
+    "chai": "^4.2.0",
     "convict": "^4.4.1",
     "dotenv": "^7.0.0",
     "eslint": "^5.16.0",
@@ -53,5 +54,8 @@
       "eslint . --no-ignore .eslintrc.js --fix --max-warnings=0",
       "git add"
     ]
+  },
+  "dependencies": {
+    "openzeppelin-solidity": "^2.2.0"
   }
 }
