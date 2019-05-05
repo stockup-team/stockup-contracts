@@ -6,10 +6,9 @@ const StockupShareToken = artifacts.require('StockupShareToken');
 contract('StockupShareToken', function([creator, minter, anyone]) {
   const NAME = 'CompanyShareToken';
   const SYMBOL = 'CST';
-  const DECIMALS = new BN(0);
 
   beforeEach(async function() {
-    this.token = await StockupShareToken.new(NAME, SYMBOL, DECIMALS, { from: creator });
+    this.token = await StockupShareToken.new(NAME, SYMBOL, { from: creator });
   });
 
   it('has a name', async function() {
@@ -20,8 +19,8 @@ contract('StockupShareToken', function([creator, minter, anyone]) {
     (await this.token.symbol()).should.equal(SYMBOL);
   });
 
-  it(`has ${DECIMALS} decimals`, async function() {
-    (await this.token.decimals()).should.be.bignumber.equal(DECIMALS);
+  it(`has 0 decimals`, async function() {
+    (await this.token.decimals()).should.be.bignumber.equal(new BN(0));
   });
 
   it('should initialize with 0 total supply', async function() {
