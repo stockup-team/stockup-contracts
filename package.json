@@ -13,6 +13,7 @@
     "console:ropsten": "npx truffle console --network ropsten",
     "console:mainnet": "npx truffle console --network mainnet",
     "test": "npm run compile && npx truffle test --network develop",
+    "test:clean": "npm run clean && npm run test",
     "lint:sol": "npx solhint --max-warnings 0 \"contracts/**/*.sol\"",
     "lint": "eslint . --no-ignore .eslintrc.js",
     "lint:fix": "eslint . --no-ignore .eslintrc.js --fix",

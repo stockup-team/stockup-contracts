@@ -10,6 +10,8 @@ import "openzeppelin-solidity/contracts/token/ERC20/ERC20Pausable.sol";
  * - has owner
  * - mintable (by owner)
  * - burnable (by owner)
+ * - freezable (by owner)
+ * - reissued (by owner)
  * - pausable
  * Token represents shares of company on stockup platform.
  */
@@ -30,6 +32,14 @@ contract StockupShareToken is ERC20Detailed, ERC20Pausable, Ownable {
      * @param account that was unfrozen
      */
     event Unfreeze(address indexed account);
+
+    /**
+     * Event for reissue tokens logging
+     * @param from whose tokens will be canceled and reissued
+     * @param to address where tokens will be reissued
+     * @param value number of reissued tokens
+     */
+    event Reissue(address indexed from, address indexed to, uint256 value);
 
     /**
      * @dev Throws if account was frozen.
@@ -103,6 +113,14 @@ contract StockupShareToken is ERC20Detailed, ERC20Pausable, Ownable {
         _frozen[account] = false;
 
         emit Unfreeze(account);
+    }
+
+    function reissue(address from, address to) public onlyOwner returns (bool) {
+        uint256 value = balanceOf(from);
+        _transfer(from, to, value);
+
+        emit Reissue(from, to, value);
+        return true;
     }
 
     // Override ERC20 methods
