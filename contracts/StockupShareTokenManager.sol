@@ -1,14 +1,19 @@
 pragma solidity ^0.5.2;
 
 import "./access/IssuerOwnerRoles.sol";
+import "./lifecycle/Pausable.sol";
 
 /**
  * @title StockupShareTokenManager
  * @dev Contract for managing a share-token.
  */
-contract StockupShareTokenManager is IssuerOwnerRoles {
+contract StockupShareTokenManager is IssuerOwnerRoles, Pausable {
     // Investors whitelist
     mapping (address => bool) private _whitelist;
+
+    bool private _verified;
+
+    event IssuerVerified();
 
     /**
     * @dev Constructor.
@@ -19,7 +24,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles {
     )
         public IssuerOwnerRoles(issuer)
     {
-
+        _verified = false;
     }
 
     /**
@@ -27,6 +32,15 @@ contract StockupShareTokenManager is IssuerOwnerRoles {
      */
     function isWhitelisted(address account) public view returns (bool) {
         return _whitelist[account];
+    }
+
+    function isIssuerVerified() public view returns (bool) {
+        return _verified;
+    }
+
+    function verify() public onlyOwner {
+        _verified = true;
+        emit IssuerVerified();
     }
 
     /**
