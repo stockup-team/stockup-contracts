@@ -14,6 +14,7 @@ import "./interface/IStockupShareTokenERC20.sol";
 contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
+    using SafeERC20 for IStockupShareTokenERC20;
 
     // Investors whitelist
     mapping (address => bool) private _whitelist;
@@ -26,9 +27,6 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     // Address of accepted token's contract
     IERC20 private _acceptedToken;
 
-    // Address where funds are collected
-    address private _issuerWallet;
-
     // How many token units a buyer gets per unit of accepted token
     uint256 private _rate;
 
@@ -38,12 +36,25 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     event IssuerVerified();
 
     /**
+     * Event for token purchase logging
+     * @param purchaser who paid for the tokens
+     * @param beneficiary who got the tokens
+     * @param value accepted tokens units paid for purchase
+     * @param amount amount of tokens purchased
+     */
+    event TokensPurchased(
+        address indexed purchaser,
+        address indexed beneficiary,
+        uint256 value,
+        uint256 amount
+    );
+
+    /**
     * @dev Constructor.
     * @param token Address of the token being sold
     * @param acceptedToken Address of the token being exchanged to token
     * @param investorsRegistry Address of investor registry contract
     * @param issuer The address of issuer account
-    * @param issuerWallet Address where collected funds will be forwarded to
     * @param rate Number of token units a buyer gets per accepted token's unit
     */
     constructor(
@@ -51,7 +62,6 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         IERC20 acceptedToken,
         IStockupInvestorsRegistry investorsRegistry,
         address issuer,
-        address issuerWallet,
         uint256 rate
     )
         public IssuerOwnerRoles(issuer)
@@ -60,12 +70,10 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         require(address(acceptedToken) != address(0));
         require(address(acceptedToken) != address(token));
         require(address(investorsRegistry) != address(0));
-        require(issuerWallet != address(0));
         require(rate > 0);
 
         _token = token;
         _acceptedToken = acceptedToken;
-        _issuerWallet = issuerWallet;
         _rate = rate;
         _investorsRegistry = investorsRegistry;
 
@@ -91,13 +99,6 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
      */
     function acceptedToken() public view returns (IERC20) {
         return _acceptedToken;
-    }
-
-    /**
-     * @return the address where funds are collected.
-     */
-    function issuerWallet() public view returns (address) {
-        return _issuerWallet;
     }
 
     /**
@@ -144,71 +145,114 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         _whitelist[account] = false;
     }
 
-    /**
-     * @dev Set new issuer wallet address.
-     * @param newIssuerWallet New address where collected funds will be forwarded to
-     */
-    function changeIssuerWallet(address newIssuerWallet) onlyIssuer public {
-        require(newIssuerWallet != address(0));
-
-        _issuerWallet = newIssuerWallet;
-    }
+    // Purchase functions
 
     /**
      * @dev Buy tokens.
      * @param amount Amount of tokens will be buy
      */
     function buyTokens(uint256 amount) external {
-        buyTokensToBeneficiary(amount, msg.sender);
+        buyTokensToBeneficiary(msg.sender, amount);
     }
 
-    /**
-     * @dev Buy tokens for a given beneficiary.
-     * @param amount Amount of tokens will be buy
-     * @param beneficiary Recipient of the token purchase
-     */
-    function buyTokensToBeneficiary(uint256 amount, address beneficiary) public whenIssuerVerified nonReentrant {
+    function buyTokensToBeneficiary(address beneficiary, uint256 amount) public whenIssuerVerified nonReentrant {
+        _preValidatePurchase(beneficiary, amount);
+
+        // How many tokens will be buy
+        uint256 tokens = amount;
+
+        // Calculate value of accepted tokens
+        uint256 value = _fromToken(tokens);
+
+        // Transfer accepted tokens from sender to this contract
+        _acceptedToken.safeTransferFrom(msg.sender, address(this), value);
+
+        // Process purchase
+        _token.safeTransfer(beneficiary, tokens);
+        emit TokensPurchased(msg.sender, beneficiary, value, tokens);
+    }
+
+    function transferTokensToBeneficiary(address beneficiary, uint256 amount) public onlyIssuer whenIssuerVerified {
+        _preValidatePurchase(beneficiary, amount);
+
+        _token.safeTransfer(beneficiary, amount);
+        // emit TokensPurchased(msg.sender, beneficiary, value, tokens); // TODO: another event? Add note text
+    }
+
+    // Validate beneficiary and amount, freeze account for unverified investor
+    function _preValidatePurchase(address beneficiary, uint256 amount) internal {
+        require(beneficiary != address(0));
         require(_investorsRegistry.isInvestor(beneficiary));
+        require(amount > 0);
 
         if(!isWhitelisted(beneficiary)) {
             if(!_token.isFrozen(beneficiary)) {
                 _token.freeze(beneficiary);
             }
         }
-
-        // TODO: transferFrom stable tokens
-        // TODO: transfer tokens, excess, calculate available tokens (with frozen tokens for unverified investors)
     }
 
-    function mint(uint256 value) public onlyIssuer {
+    function withdraw(address to, uint256 value) public onlyIssuer whenIssuerVerified {
+        require(to != address(0));
         require(value > 0);
 
-        _token.mint(address(this), value);
+        _acceptedToken.safeTransfer(to, value);
     }
 
-    function burn(uint256 value) public onlyIssuer {
+
+    // Manage token functions
+
+    function mintTokens(uint256 value) public onlyIssuer whenIssuerVerified {
+        require(value > 0);
+
+        require(_token.mint(address(this), value));
+    }
+
+    function burnTokens(uint256 value) public onlyIssuer whenIssuerVerified {
         require(value > 0);
 
         _token.burn(value);
     }
 
-    function transferTokensToBeneficiary(uint256 value, address beneficiary) public onlyIssuer whenIssuerVerified {
-        require(_investorsRegistry.isInvestor(beneficiary));
-
-        // require(isWhitelisted(beneficiary));
-    }
-
-    function freeze(address account) public onlyIssuer whenIssuerVerified {
+    function freezeTokens(address account) public onlyIssuer whenIssuerVerified {
         require(_investorsRegistry.isInvestor(account));
 
         _token.freeze(account);
     }
 
-    function unfreeze(address account) public onlyIssuer whenIssuerVerified {
+    function unfreezeTokens(address account) public onlyIssuer whenIssuerVerified {
         require(_investorsRegistry.isInvestor(account));
 
         _token.unfreeze(account);
     }
 
+    function reissueTokens(address from, address to) public onlyIssuer whenIssuerVerified {
+        require(_token.reissue(from, to));
+    }
 
+    function pauseToken() public onlyIssuer whenIssuerVerified {
+        _token.pause();
+    }
+
+    function unpauseToken() public onlyIssuer whenIssuerVerified {
+        _token.unpause();
+    }
+
+    // Internal helpers functions
+
+    /**
+     * @dev Converts accepted tokens to tokens for sale.
+     * @param value Value of accepted tokens will be convert
+     */
+    function _toToken(uint256 value) internal view returns (uint256) {
+        return _rate > 1 ? value.mul(_rate) : value;
+    }
+
+    /**
+     * @dev Converts tokens for sale to accepted tokens.
+     * @param amount Value of tokens for sale will be convert
+     */
+    function _fromToken(uint256 amount) internal view returns (uint256) {
+        return _rate > 1 ? amount.div(_rate) : amount;
+    }
 }

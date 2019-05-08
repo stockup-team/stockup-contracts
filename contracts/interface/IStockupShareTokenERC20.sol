@@ -1,36 +1,26 @@
 pragma solidity ^0.5.2;
 
+import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
+
 /**
  * @title Interface of StockupShareToken with ERC20 compatibility
  */
-interface IStockupShareTokenERC20 {
-    function transfer(address to, uint256 value) external returns (bool);
+contract IStockupShareTokenERC20 is IERC20 {
+    function mint(address to, uint256 value) public returns (bool);
 
-    function approve(address spender, uint256 value) external returns (bool);
+    function burn(uint256 value) public;
 
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function freeze(address account) public;
 
-    function mint(address to, uint256 value) external returns (bool);
+    function unfreeze(address account) public;
 
-    function burn(uint256 value) external;
+    function reissue(address from, address to) public returns (bool);
 
-    function freeze(address account) external;
+    function pause() public;
 
-    function unfreeze(address account) external;
+    function unpause() public;
 
-    function reissue(address from, address to) external;
-
-    function totalSupply() external view returns (uint256);
-
-    function balanceOf(address who) external view returns (uint256);
-
-    function allowance(address owner, address spender) external view returns (uint256);
-
-    function isFrozen(address account) external view returns (bool);
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    function isFrozen(address account) public view returns (bool);
 
     event Freeze(address indexed account);
 
