@@ -56,13 +56,15 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     * @param investorsRegistry Address of investor registry contract
     * @param issuer The address of issuer account
     * @param rate Number of token units a buyer gets per accepted token's unit
+    * @param initialTokenSupply Number of tokens will be mint and transfer to this contract
     */
     constructor(
         IStockupShareTokenERC20 token,
         IERC20 acceptedToken,
         IStockupInvestorsRegistry investorsRegistry,
         address issuer,
-        uint256 rate
+        uint256 rate,
+        uint256 initialTokenSupply
     )
         public IssuerOwnerRoles(issuer)
     {
@@ -76,6 +78,10 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         _acceptedToken = acceptedToken;
         _rate = rate;
         _investorsRegistry = investorsRegistry;
+
+        if(initialTokenSupply > 0) {
+            require(_token.mint(address(this), initialTokenSupply));
+        }
 
         _verified = false;
     }
