@@ -19,6 +19,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     // Investors whitelist
     mapping (address => bool) private _whitelist;
 
+    // Issuer verification state
     bool private _verified;
 
     // The token being sold
@@ -30,9 +31,12 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     // How many token units a buyer gets per unit of accepted token
     uint256 private _rate;
 
+    // Investors registry contract
     IStockupInvestorsRegistry _investorsRegistry;
 
-
+    /**
+     * Event issuer verification logging
+     */
     event IssuerVerified();
 
     /**
@@ -48,6 +52,18 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         uint256 value,
         uint256 amount
     );
+
+    /**
+     * Event for add investor to whitelist logging
+     * @param account who was added to whitelist
+     */
+    event WhitelistAdded(address indexed account);
+
+    /**
+     * Event for remove investor from whitelist logging
+     * @param account who was removed from whitelist
+     */
+    event WhitelistRemoved(address indexed account);
 
     /**
     * @dev Constructor.
@@ -141,7 +157,10 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
      * @param account Address to be added to the whitelist
      */
     function addToWhitelist(address account) public onlyIssuerOrOwner {
+        require(_investorsRegistry.isInvestor(account));
+
         _whitelist[account] = true;
+        emit WhitelistAdded(account);
     }
 
     /**
@@ -150,6 +169,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
      */
     function removeFromWhitelist(address account) public onlyIssuerOrOwner {
         _whitelist[account] = false;
+        emit WhitelistRemoved(account);
     }
 
     // Purchase functions
