@@ -9,7 +9,7 @@ import "./interface/IStockupShareTokenERC20.sol";
 
 /**
  * @title StockupShareTokenManager
- * @dev Contract for managing a share-token.
+ * @dev Contract for managing a share-token with tokensale functions.
  */
 contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard {
     using SafeMath for uint256;
@@ -56,15 +56,13 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     * @param investorsRegistry Address of investor registry contract
     * @param issuer The address of issuer account
     * @param rate Number of token units a buyer gets per accepted token's unit
-    * @param initialTokenSupply Number of tokens will be mint and transfer to this contract
     */
     constructor(
         IStockupShareTokenERC20 token,
         IERC20 acceptedToken,
         IStockupInvestorsRegistry investorsRegistry,
         address issuer,
-        uint256 rate,
-        uint256 initialTokenSupply
+        uint256 rate
     )
         public IssuerOwnerRoles(issuer)
     {
@@ -78,10 +76,6 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         _acceptedToken = acceptedToken;
         _rate = rate;
         _investorsRegistry = investorsRegistry;
-
-        if(initialTokenSupply > 0) {
-            require(_token.mint(address(this), initialTokenSupply));
-        }
 
         _verified = false;
     }
@@ -105,6 +99,13 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
      */
     function acceptedToken() public view returns (IERC20) {
         return _acceptedToken;
+    }
+
+    /**
+     * @return investors registry contract.
+     */
+    function investorsRegistry() public view returns (IStockupInvestorsRegistry) {
+        return _investorsRegistry;
     }
 
     /**
