@@ -1,7 +1,7 @@
 pragma solidity ^0.5.2;
 
 /**
- * @title Interface of StockupShareToken with ERC20 compatibility
+ * @title Interface of StockupInvestorsRegistry contract
  */
 interface IStockupInvestorsRegistry {
     function isInvestor(address account) external view returns(bool);
