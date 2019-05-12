@@ -6,7 +6,7 @@ const TestStableToken = artifacts.require('TestStableToken');
 const StockupShareToken = artifacts.require('StockupShareToken');
 const StockupInvestorsRegistry = artifacts.require('StockupInvestorsRegistry');
 
-contract('StockupShareToken', function([owner, issuer, investor, anyone]) {
+contract('_StockupShareTokenManagerWhitelist', function([owner, issuer, investor, anyone]) {
   const TOKEN_NAME = 'CompanyShareToken';
   const TOKEN_SYMBOL = 'CST';
   const RATE = ether('1');
