@@ -147,6 +147,11 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         _;
     }
 
+    modifier whenIssuerVerifiedOrOwner() {
+        require(_verified || isOwner());
+        _;
+    }
+
     function verify() public onlyOwner {
         _verified = true;
         emit IssuerVerified();
@@ -156,7 +161,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
      * @dev Adds single address to whitelist.
      * @param account Address to be added to the whitelist
      */
-    function addToWhitelist(address account) public onlyIssuerOrOwner {
+    function addToWhitelist(address account) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
         require(_investorsRegistry.isInvestor(account));
 
         _whitelist[account] = true;
@@ -167,7 +172,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
      * @dev Removes single address from whitelist.
      * @param account Address to be removed to the whitelist
      */
-    function removeFromWhitelist(address account) public onlyIssuerOrOwner {
+    function removeFromWhitelist(address account) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
         _whitelist[account] = false;
         emit WhitelistRemoved(account);
     }

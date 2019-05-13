@@ -26,70 +26,105 @@ contract('_StockupShareTokenManagerWhitelist', function([owner, issuer, investor
     );
   });
 
-  it('reverts on add to whitelist no investor account', async function() {
-    await shouldFail.reverting(this.manager.addToWhitelist(investor, { from: owner }));
-  });
-
-  context('when investor added in registry', function() {
+  context('when issuer unverified', function() {
     beforeEach(async function() {
       await this.registry.addInvestor(investor, { from: owner });
     });
 
-    it('should init whitelisted state to false', async function() {
+    it('reverts add investor account to whitelist by issuer', async function() {
+      await shouldFail.reverting(this.manager.addToWhitelist(investor, { from: issuer }));
+    });
+
+    it('should add investor account to whitelist by owner', async function() {
+      await this.manager.addToWhitelist(investor, { from: owner });
+      (await this.manager.isWhitelisted(investor)).should.be.equal(true);
+    });
+
+    it('reverts remove investor account from whitelist by issuer', async function() {
+      await this.manager.addToWhitelist(investor, { from: owner });
+      (await this.manager.isWhitelisted(investor)).should.be.equal(true);
+      await shouldFail.reverting(this.manager.removeFromWhitelist(investor, { from: issuer }));
+      (await this.manager.isWhitelisted(investor)).should.be.equal(true);
+    });
+
+    it('should remove investor account from whitelist by owner', async function() {
+      await this.manager.addToWhitelist(investor, { from: owner });
+      (await this.manager.isWhitelisted(investor)).should.be.equal(true);
+      await this.manager.removeFromWhitelist(investor, { from: owner });
       (await this.manager.isWhitelisted(investor)).should.be.equal(false);
     });
+  });
 
-    it('should add investor to whitelist by issuer', async function() {
-      await this.manager.addToWhitelist(investor, { from: issuer });
+  context('when issuer verified', function() {
+    beforeEach(async function() {
+      await this.manager.verify({ from: owner });
     });
 
-    it('should add investor to whitelist by owner', async function() {
-      await this.manager.addToWhitelist(investor, { from: owner });
+    it('reverts on add to whitelist no investor account', async function() {
+      await shouldFail.reverting(this.manager.addToWhitelist(investor, { from: owner }));
     });
 
-    it('reverts on add investor to whitelist by anyone', async function() {
-      await shouldFail.reverting(this.manager.addToWhitelist(investor, { from: anyone }));
-    });
-
-    context('when investor added to whitelist', function() {
+    context('when investor added in registry', function() {
       beforeEach(async function() {
-        ({ logs: this.logs } = await this.manager.addToWhitelist(investor, { from: owner }));
+        await this.registry.addInvestor(investor, { from: owner });
       });
 
-      it('should set whitelisted state to true', async function() {
-        (await this.manager.isWhitelisted(investor)).should.be.equal(true);
+      it('should init whitelisted state to false', async function() {
+        (await this.manager.isWhitelisted(investor)).should.be.equal(false);
       });
 
-      it('should log add event', async function() {
-        expectEvent.inLogs(this.logs, 'WhitelistAdded', {
-          account: investor,
-        });
+      it('should add investor to whitelist by issuer', async function() {
+        await this.manager.addToWhitelist(investor, { from: issuer });
       });
 
-      it('should remove investor from whitelist by issuer', async function() {
-        await this.manager.removeFromWhitelist(investor, { from: issuer });
+      it('should add investor to whitelist by owner', async function() {
+        await this.manager.addToWhitelist(investor, { from: owner });
       });
 
-      it('should remove investor from whitelist by owner', async function() {
-        await this.manager.removeFromWhitelist(investor, { from: owner });
+      it('reverts on add investor to whitelist by anyone', async function() {
+        await shouldFail.reverting(this.manager.addToWhitelist(investor, { from: anyone }));
       });
 
-      it('reverts on remove investor from whitelist by anyone', async function() {
-        await shouldFail.reverting(this.manager.removeFromWhitelist(investor, { from: anyone }));
-      });
-
-      context('when investor removed from whitelist', function() {
+      context('when investor added to whitelist', function() {
         beforeEach(async function() {
-          ({ logs: this.logs } = await this.manager.removeFromWhitelist(investor, { from: owner }));
+          ({ logs: this.logs } = await this.manager.addToWhitelist(investor, { from: owner }));
         });
 
-        it('should set whitelisted state to false', async function() {
-          (await this.manager.isWhitelisted(investor)).should.be.equal(false);
+        it('should set whitelisted state to true', async function() {
+          (await this.manager.isWhitelisted(investor)).should.be.equal(true);
         });
 
         it('should log add event', async function() {
-          expectEvent.inLogs(this.logs, 'WhitelistRemoved', {
+          expectEvent.inLogs(this.logs, 'WhitelistAdded', {
             account: investor,
+          });
+        });
+
+        it('should remove investor from whitelist by issuer', async function() {
+          await this.manager.removeFromWhitelist(investor, { from: issuer });
+        });
+
+        it('should remove investor from whitelist by owner', async function() {
+          await this.manager.removeFromWhitelist(investor, { from: owner });
+        });
+
+        it('reverts on remove investor from whitelist by anyone', async function() {
+          await shouldFail.reverting(this.manager.removeFromWhitelist(investor, { from: anyone }));
+        });
+
+        context('when investor removed from whitelist', function() {
+          beforeEach(async function() {
+            ({ logs: this.logs } = await this.manager.removeFromWhitelist(investor, { from: owner }));
+          });
+
+          it('should set whitelisted state to false', async function() {
+            (await this.manager.isWhitelisted(investor)).should.be.equal(false);
+          });
+
+          it('should log add event', async function() {
+            expectEvent.inLogs(this.logs, 'WhitelistRemoved', {
+              account: investor,
+            });
           });
         });
       });
