@@ -54,6 +54,16 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     );
 
     /**
+     * Event for token manual purchase (transfer) logging
+     * @param beneficiary who got the tokens
+     * @param amount amount of tokens transferred
+     */
+    event TokensTransferred(
+        address indexed beneficiary,
+        uint256 amount
+    );
+
+    /**
      * Event for add investor to whitelist logging
      * @param account who was added to whitelist
      */
@@ -208,7 +218,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         _preValidatePurchase(beneficiary, amount);
 
         _token.safeTransfer(beneficiary, amount);
-        // emit TokensPurchased(msg.sender, beneficiary, value, tokens); // TODO: another event? Add note text
+        emit TokensTransferred(beneficiary, amount);
     }
 
     // Validate beneficiary and amount, freeze account for unverified investor
