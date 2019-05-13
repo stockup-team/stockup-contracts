@@ -40,8 +40,36 @@ contract('_StockupShareTokenManagerControl', function([
     await this.token.transferOwnership(this.manager.address, { from: owner });
   });
 
-  it('reverts on mint tokens', async function() {
-    await shouldFail.reverting(this.manager.mintTokens(this.value, { from: issuer }));
+  context('when issuer unverified', function() {
+    it('reverts on mint tokens by issuer', async function() {
+      await shouldFail.reverting(this.manager.mintTokens(this.value, { from: issuer }));
+    });
+
+    it('reverts on burn tokens by issuer', async function() {
+      await this.token.transfer(this.manager.address, this.value, { from: anotherInvestor });
+      await shouldFail.reverting(this.manager.burnTokens(this.value, { from: issuer }));
+    });
+
+    it('reverts on freeze tokens by issuer', async function() {
+      await this.registry.addInvestor(investor, { from: owner });
+      await shouldFail.reverting(this.manager.freezeTokens(investor, { from: issuer }));
+      (await this.token.isFrozen(investor)).should.be.equal(false);
+    });
+
+    it('reverts on reissue tokens by issuer', async function() {
+      await this.registry.addInvestor(anotherInvestor, { from: owner });
+      await this.registry.addInvestor(investorReissuer, { from: owner });
+      (await this.token.balanceOf(anotherInvestor)).should.be.bignumber.equal(this.value);
+      await shouldFail.reverting(this.manager.reissueTokens(anotherInvestor, investorReissuer, { from: issuer }));
+      (await this.token.balanceOf(anotherInvestor)).should.be.bignumber.equal(this.value);
+      (await this.token.balanceOf(investorReissuer)).should.be.bignumber.equal(new BN(0));
+    });
+
+    it('reverts on pause token by issuer', async function() {
+      (await this.token.paused()).should.be.equal(false);
+      await shouldFail.reverting(this.manager.pauseToken({ from: issuer }));
+      (await this.token.paused()).should.be.equal(false);
+    });
   });
 
   context('when issuer verified', function() {
@@ -96,13 +124,17 @@ contract('_StockupShareTokenManagerControl', function([
           await this.registry.addInvestor(investor, { from: owner });
         });
 
-        it('should freeze investors account', async function() {
+        it('should freeze investors account by owner', async function() {
+          await this.manager.freezeTokens(investor, { from: owner });
+          (await this.token.isFrozen(investor)).should.be.equal(true);
+        });
+
+        it('should freeze investors account by issuer', async function() {
           await this.manager.freezeTokens(investor, { from: issuer });
           (await this.token.isFrozen(investor)).should.be.equal(true);
         });
 
-        it('reverts on freeze by owner or anyone', async function() {
-          await shouldFail.reverting(this.manager.freezeTokens(investor, { from: owner }));
+        it('reverts on freeze by anyone', async function() {
           await shouldFail.reverting(this.manager.freezeTokens(investor, { from: anyone }));
         });
       });
@@ -115,14 +147,19 @@ contract('_StockupShareTokenManagerControl', function([
           await this.manager.freezeTokens(investor, { from: issuer });
         });
 
-        it('should unfreeze investors account', async function() {
+        it('should unfreeze investors account by owner', async function() {
+          (await this.token.isFrozen(investor)).should.be.equal(true);
+          await this.manager.unfreezeTokens(investor, { from: owner });
+          (await this.token.isFrozen(investor)).should.be.equal(false);
+        });
+
+        it('should unfreeze investors account by issuer', async function() {
           (await this.token.isFrozen(investor)).should.be.equal(true);
           await this.manager.unfreezeTokens(investor, { from: issuer });
           (await this.token.isFrozen(investor)).should.be.equal(false);
         });
 
-        it('reverts on freeze by owner or anyone', async function() {
-          await shouldFail.reverting(this.manager.unfreezeTokens(investor, { from: owner }));
+        it('reverts on freeze by anyone', async function() {
           await shouldFail.reverting(this.manager.unfreezeTokens(investor, { from: anyone }));
         });
 
@@ -139,39 +176,84 @@ contract('_StockupShareTokenManagerControl', function([
     });
 
     describe('reissue tokens', function() {
-      it('should reissue tokens', async function() {
-        (await this.token.balanceOf(anotherInvestor)).should.be.bignumber.equal(this.value);
-        await this.manager.reissueTokens(anotherInvestor, investorReissuer, { from: issuer });
-        (await this.token.balanceOf(investorReissuer)).should.be.bignumber.equal(this.value);
+      it('reverts on reissue tokens when from account not in registry', async function() {
+        await this.registry.addInvestor(investorReissuer, { from: owner });
+        await shouldFail.reverting(this.manager.reissueTokens(anotherInvestor, investorReissuer, { from: owner }));
+      });
+
+      it('reverts on reissue tokens when to account not in registry', async function() {
+        await this.registry.addInvestor(anotherInvestor, { from: owner });
+        await shouldFail.reverting(this.manager.reissueTokens(anotherInvestor, investorReissuer, { from: owner }));
+      });
+
+      context('when both investors accounts was added to investor registry', function() {
+        beforeEach(async function() {
+          await this.registry.addInvestor(anotherInvestor, { from: owner });
+          await this.registry.addInvestor(investorReissuer, { from: owner });
+        });
+
+        it('should reissue tokens by owner', async function() {
+          (await this.token.balanceOf(anotherInvestor)).should.be.bignumber.equal(this.value);
+          await this.manager.reissueTokens(anotherInvestor, investorReissuer, { from: owner });
+          (await this.token.balanceOf(investorReissuer)).should.be.bignumber.equal(this.value);
+        });
+
+        it('should reissue tokens by issuer', async function() {
+          (await this.token.balanceOf(anotherInvestor)).should.be.bignumber.equal(this.value);
+          await this.manager.reissueTokens(anotherInvestor, investorReissuer, { from: issuer });
+          (await this.token.balanceOf(investorReissuer)).should.be.bignumber.equal(this.value);
+        });
+
+        it('reverts on reissue tokens by anyone', async function() {
+          await shouldFail.reverting(this.manager.reissueTokens(anotherInvestor, investorReissuer, { from: anyone }));
+        });
+
+        it('should reissue tokens by owner when from account frozen (lost investors access scenario)', async function() {
+          await this.manager.freezeTokens(anotherInvestor, { from: owner });
+          (await this.token.isFrozen(anotherInvestor)).should.be.equal(true);
+          (await this.token.balanceOf(anotherInvestor)).should.be.bignumber.equal(this.value);
+          await this.manager.reissueTokens(anotherInvestor, investorReissuer, { from: owner });
+          (await this.token.balanceOf(investorReissuer)).should.be.bignumber.equal(this.value);
+        });
       });
     });
 
     describe('pause token', function() {
-      it('should pause tokens', async function() {
+      it('should pause tokens by owner', async function() {
+        (await this.token.paused()).should.be.equal(false);
+        await this.manager.pauseToken({ from: owner });
+        (await this.token.paused()).should.be.equal(true);
+      });
+
+      it('should pause tokens by issuer', async function() {
         (await this.token.paused()).should.be.equal(false);
         await this.manager.pauseToken({ from: issuer });
         (await this.token.paused()).should.be.equal(true);
       });
 
-      it('reverts on pause token by owner or anyone', async function() {
-        await shouldFail.reverting(this.manager.pauseToken({ from: owner }));
+      it('reverts on pause token by anyone', async function() {
         await shouldFail.reverting(this.manager.pauseToken({ from: anyone }));
       });
     });
 
     describe('unpause token', function() {
       beforeEach(async function() {
-        await this.manager.pauseToken({ from: issuer });
+        await this.manager.pauseToken({ from: owner });
       });
 
-      it('should unpause tokens', async function() {
+      it('should unpause token by owner', async function() {
+        (await this.token.paused()).should.be.equal(true);
+        await this.manager.unpauseToken({ from: owner });
+        (await this.token.paused()).should.be.equal(false);
+      });
+
+      it('should unpause token by issuer', async function() {
         (await this.token.paused()).should.be.equal(true);
         await this.manager.unpauseToken({ from: issuer });
         (await this.token.paused()).should.be.equal(false);
       });
 
-      it('reverts on unpause token by owner or anyone', async function() {
-        await shouldFail.reverting(this.manager.unpauseToken({ from: owner }));
+      it('reverts on unpause token by anyone', async function() {
         await shouldFail.reverting(this.manager.unpauseToken({ from: anyone }));
       });
     });
