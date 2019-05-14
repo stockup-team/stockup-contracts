@@ -105,6 +105,10 @@ contract('StockupShareToken', function([owner, issuer, anyone]) {
       (await this.manager.isIssuerVerified()).should.be.equal(false);
     });
 
+    it('reverts on ether payments', async function() {
+      await shouldFail.reverting(this.manager.sendTransaction({ from: owner, value: ether('1') }));
+    });
+
     describe('issuer verification', function() {
       it('reverts verify by anyone', async function() {
         await shouldFail.reverting(this.manager.verify({ from: anyone }));
