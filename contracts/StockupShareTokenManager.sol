@@ -81,7 +81,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     * @param acceptedToken Address of the token being exchanged to token
     * @param investorsRegistry Address of investor registry contract
     * @param issuer The address of issuer account
-    * @param rate Number of token units a buyer gets per accepted token's unit
+    * @param rate Number of accepted token's units per one token's unit
     */
     constructor(
         IStockupShareTokenERC20 token,
@@ -286,18 +286,10 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     // Internal helpers functions
 
     /**
-     * @dev Converts accepted tokens to tokens for sale.
-     * @param value Value of accepted tokens will be convert
-     */
-    function _toToken(uint256 value) internal view returns (uint256) {
-        return _rate > 1 ? value.mul(_rate) : value;
-    }
-
-    /**
      * @dev Converts tokens for sale to accepted tokens.
      * @param amount Value of tokens for sale will be convert
      */
     function _fromToken(uint256 amount) internal view returns (uint256) {
-        return _rate > 1 ? amount.div(_rate) : amount;
+        return _rate > 1 ? amount.mul(_rate) : amount;
     }
 }
