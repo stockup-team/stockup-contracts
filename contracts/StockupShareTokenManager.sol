@@ -264,30 +264,30 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         _token.burn(value);
     }
 
-    function freezeTokens(address account) public onlyIssuerOrOwner whenIssuerVerified {
+    function freezeTokens(address account) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
         require(_investorsRegistry.isInvestor(account));
 
         _token.freeze(account);
     }
 
-    function unfreezeTokens(address account) public onlyIssuerOrOwner whenIssuerVerified {
+    function unfreezeTokens(address account) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
         require(_investorsRegistry.isInvestor(account));
 
         _token.unfreeze(account);
     }
 
-    function reissueTokens(address from, address to) public onlyIssuerOrOwner whenIssuerVerified {
+    function reissueTokens(address from, address to) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
         require(_investorsRegistry.isInvestor(from));
         require(_investorsRegistry.isInvestor(to));
 
         require(_token.reissue(from, to));
     }
 
-    function pauseToken() public onlyIssuerOrOwner whenIssuerVerified {
+    function pauseToken() public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
         _token.pause();
     }
 
-    function unpauseToken() public onlyIssuerOrOwner whenIssuerVerified {
+    function unpauseToken() public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
         _token.unpause();
     }
 
