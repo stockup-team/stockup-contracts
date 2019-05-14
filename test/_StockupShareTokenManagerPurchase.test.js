@@ -8,7 +8,14 @@ const TestStableToken = artifacts.require('TestStableToken');
 const StockupShareToken = artifacts.require('StockupShareToken');
 const StockupInvestorsRegistry = artifacts.require('StockupInvestorsRegistry');
 
-contract('_StockupShareTokenManagerPurchase', function([owner, issuer, investor, anotherInvestor, anyone]) {
+contract('_StockupShareTokenManagerPurchase', function([
+  owner,
+  issuer,
+  issuerWallet,
+  investor,
+  anotherInvestor,
+  anyone,
+]) {
   const TOKEN_NAME = 'CompanyShareToken';
   const TOKEN_SYMBOL = 'CST';
   const RATE = ether('1'); // 1 share = 1 stable token with 18 decimals
@@ -227,5 +234,67 @@ contract('_StockupShareTokenManagerPurchase', function([owner, issuer, investor,
     });
   });
 
-  describe('3. withdraw raised', function() {});
+  describe('3. withdraw raised', function() {
+    context('when issuer unverified', function() {
+      it('reverts on withdraw', async function() {
+        // Direct transfer to contract for test
+        await this.acceptedToken.transfer(this.manager.address, this.value, { from: owner });
+
+        await shouldFail.reverting(this.manager.withdraw(issuer, this.value, { from: issuer }));
+      });
+    });
+
+    context('when issuer verified and investor bought tokens', function() {
+      beforeEach(async function() {
+        await this.manager.verify({ from: owner });
+
+        // Investor's verification
+        await this.registry.addInvestor(investor, { from: owner });
+        await this.manager.addToWhitelist(investor, { from: issuer });
+
+        // Tokens purchase
+        await this.acceptedToken.transfer(investor, this.value, { from: owner });
+        await this.acceptedToken.approve(this.manager.address, this.value, { from: investor });
+        await this.manager.buyTokens(this.amount, { from: investor });
+      });
+
+      it('should withdraw raised by issuer', async function() {
+        await this.manager.withdraw(issuerWallet, this.value, { from: issuer });
+      });
+
+      it('reverts withdraw raised by owner', async function() {
+        await shouldFail.reverting(this.manager.withdraw(issuerWallet, this.value, { from: owner }));
+      });
+
+      it('reverts withdraw raised by anyone', async function() {
+        await shouldFail.reverting(this.manager.withdraw(issuerWallet, this.value, { from: anyone }));
+      });
+
+      it('requires non-null raised beneficiary', async function() {
+        await shouldFail.reverting(this.manager.withdraw(ZERO_ADDRESS, this.value, { from: issuer }));
+      });
+
+      it('requires non-null withdraw value', async function() {
+        await shouldFail.reverting(this.manager.withdraw(issuerWallet, new BN(0), { from: issuer }));
+      });
+
+      context('when withdrawn raised', function() {
+        beforeEach(async function() {
+          ({ logs: this.logs } = await this.manager.withdraw(issuerWallet, this.value, { from: issuer }));
+        });
+
+        it('should transfer withdrawn from contract to issuer wallet', async function() {
+          (await this.acceptedToken.balanceOf(this.manager.address)).should.be.bignumber.equal(new BN(0));
+          (await this.acceptedToken.balanceOf(issuerWallet)).should.be.bignumber.equal(this.value);
+        });
+
+        it('should log withdraw tokens event', async function() {
+          expectEvent.inLogs(this.logs, 'WithdrawnRaised', {
+            wallet: issuerWallet,
+            value: this.value,
+          });
+        });
+      });
+    });
+  });
 });

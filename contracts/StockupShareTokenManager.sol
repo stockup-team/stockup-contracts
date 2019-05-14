@@ -76,6 +76,13 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     event WhitelistRemoved(address indexed account);
 
     /**
+     * Event for raised withdrawal logging
+     * @param wallet who got withdrawn tokens
+     * @param value amount of tokens withdrawn
+     */
+    event WithdrawnRaised(address indexed wallet, uint256 value);
+
+    /**
     * @dev Constructor.
     * @param token Address of the token being sold
     * @param acceptedToken Address of the token being exchanged to token
@@ -239,6 +246,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         require(value > 0);
 
         _acceptedToken.safeTransfer(to, value);
+        emit WithdrawnRaised(to, value);
     }
 
 
