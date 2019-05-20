@@ -56,7 +56,7 @@ module.exports = {
       provider() {
         return new HDWalletProvider(
           config.get('ropstenMnemonic'),
-          `https://ropsten.infura.io/${config.get('infuraApiKey')}`,
+          `https://ropsten.infura.io/v3/${config.get('infuraProjectId')}`,
           0,
           10,
         );
@@ -70,7 +70,7 @@ module.exports = {
       provider() {
         return new HDWalletProvider(
           config.get('mainnetMnemonic'),
-          `https://mainnet.infura.io/${config.get('infuraApiKey')}`,
+          `https://mainnet.infura.io/v3/${config.get('infuraProjectId')}`,
           0,
           10,
         );
