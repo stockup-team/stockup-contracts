@@ -10,8 +10,9 @@ const StockupInvestorsRegistry = artifacts.require('StockupInvestorsRegistry');
 
 contract('_StockupShareTokenManagerPurchase', function([
   owner,
-  issuer,
-  issuerWallet,
+  admin,
+  adminWallet,
+  manager,
   investor,
   anotherInvestor,
   anyone,
@@ -32,7 +33,7 @@ contract('_StockupShareTokenManagerPurchase', function([
       this.token.address,
       this.acceptedToken.address,
       this.registry.address,
-      issuer,
+      admin,
       RATE,
       { from: owner },
     );
@@ -41,12 +42,22 @@ contract('_StockupShareTokenManagerPurchase', function([
 
     // Change owner of token to manager contract
     await this.token.transferOwnership(this.manager.address, { from: owner });
+
+    await this.manager.addManager(manager, { from: admin });
   });
 
   describe('1. manual tokens transfer', function() {
     context('when issuer unverified', function() {
-      it('reverts on transfer', async function() {
-        await shouldFail.reverting(this.manager.transferTokensToBeneficiary(investor, this.amount, { from: issuer }));
+      it('reverts on transfer by owner', async function() {
+        await shouldFail.reverting(this.manager.transferTokensToBeneficiary(investor, this.amount, { from: owner }));
+      });
+
+      it('reverts on transfer by admin', async function() {
+        await shouldFail.reverting(this.manager.transferTokensToBeneficiary(investor, this.amount, { from: admin }));
+      });
+
+      it('reverts on transfer by manager', async function() {
+        await shouldFail.reverting(this.manager.transferTokensToBeneficiary(investor, this.amount, { from: manager }));
       });
     });
 
@@ -56,7 +67,8 @@ contract('_StockupShareTokenManagerPurchase', function([
       });
 
       it('reverts transfer when investor no in investors registry', async function() {
-        await shouldFail.reverting(this.manager.transferTokensToBeneficiary(investor, this.amount, { from: issuer }));
+        await shouldFail.reverting(this.manager.transferTokensToBeneficiary(investor, this.amount, { from: admin }));
+        await shouldFail.reverting(this.manager.transferTokensToBeneficiary(investor, this.amount, { from: manager }));
       });
 
       context('when investor was added to investors registry', function() {
@@ -64,8 +76,12 @@ contract('_StockupShareTokenManagerPurchase', function([
           await this.registry.addInvestor(investor, { from: owner });
         });
 
-        it('should transfer by issuer', async function() {
-          await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: issuer });
+        it('should transfer by admin', async function() {
+          await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: admin });
+        });
+
+        it('should transfer by manager', async function() {
+          await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: manager });
         });
 
         it('reverts on transfer by owner', async function() {
@@ -79,48 +95,48 @@ contract('_StockupShareTokenManagerPurchase', function([
         it('should freeze investor account and transfer tokens', async function() {
           (await this.token.isFrozen(investor)).should.be.equal(false);
           (await this.token.balanceOf(investor)).should.be.bignumber.equal(new BN(0));
-          await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: issuer });
+          await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: admin });
           (await this.token.isFrozen(investor)).should.be.equal(true);
           (await this.token.balanceOf(investor)).should.be.bignumber.equal(this.amount);
         });
 
         it('should transfer tokens when investors account already was frozen', async function() {
-          await this.manager.freezeTokens(investor, { from: issuer });
+          await this.manager.freezeTokens(investor, { from: admin });
           (await this.token.isFrozen(investor)).should.be.equal(true);
-          await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: issuer });
+          await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: admin });
           (await this.token.isFrozen(investor)).should.be.equal(true);
         });
 
         it('reverts transfer frozen tokens from investor to another investor', async function() {
-          await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: issuer });
+          await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: admin });
           await shouldFail.reverting(this.token.transfer(anotherInvestor, this.amount, { from: investor }));
         });
 
         it('requires non-null beneficiary', async function() {
           await shouldFail.reverting(
-            this.manager.transferTokensToBeneficiary(ZERO_ADDRESS, this.amount, { from: issuer }),
+            this.manager.transferTokensToBeneficiary(ZERO_ADDRESS, this.amount, { from: admin }),
           );
         });
 
         it('requires non-null amount', async function() {
-          await shouldFail.reverting(this.manager.transferTokensToBeneficiary(investor, new BN(0), { from: issuer }));
+          await shouldFail.reverting(this.manager.transferTokensToBeneficiary(investor, new BN(0), { from: admin }));
         });
 
         context('when investor was added to whitelist', function() {
           beforeEach(async function() {
-            await this.manager.addToWhitelist(investor, { from: issuer });
+            await this.manager.addToWhitelist(investor, { from: admin });
           });
 
           it('should transfer tokens without freeze investors account', async function() {
             (await this.token.isFrozen(investor)).should.be.equal(false);
-            await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: issuer });
+            await this.manager.transferTokensToBeneficiary(investor, this.amount, { from: admin });
             (await this.token.isFrozen(investor)).should.be.equal(false);
           });
 
           context('when tokens was transferred', function() {
             beforeEach(async function() {
               ({ logs: this.logs } = await this.manager.transferTokensToBeneficiary(investor, this.amount, {
-                from: issuer,
+                from: admin,
               }));
             });
 
@@ -181,7 +197,7 @@ contract('_StockupShareTokenManagerPurchase', function([
         });
 
         it('should purchase tokens when investors account already was frozen', async function() {
-          await this.manager.freezeTokens(investor, { from: issuer });
+          await this.manager.freezeTokens(investor, { from: admin });
           (await this.token.isFrozen(investor)).should.be.equal(true);
           await this.manager.buyTokens(this.amount, { from: investor });
           (await this.token.isFrozen(investor)).should.be.equal(true);
@@ -194,7 +210,7 @@ contract('_StockupShareTokenManagerPurchase', function([
 
         context('when investor was added to whitelist', function() {
           beforeEach(async function() {
-            await this.manager.addToWhitelist(investor, { from: issuer });
+            await this.manager.addToWhitelist(investor, { from: admin });
           });
 
           it('should purchase tokens without freeze investors account', async function() {
@@ -240,7 +256,7 @@ contract('_StockupShareTokenManagerPurchase', function([
         // Direct transfer to contract for test
         await this.acceptedToken.transfer(this.manager.address, this.value, { from: owner });
 
-        await shouldFail.reverting(this.manager.withdraw(issuer, this.value, { from: issuer }));
+        await shouldFail.reverting(this.manager.withdraw(admin, this.value, { from: admin }));
       });
     });
 
@@ -250,7 +266,7 @@ contract('_StockupShareTokenManagerPurchase', function([
 
         // Investor's verification
         await this.registry.addInvestor(investor, { from: owner });
-        await this.manager.addToWhitelist(investor, { from: issuer });
+        await this.manager.addToWhitelist(investor, { from: admin });
 
         // Tokens purchase
         await this.acceptedToken.transfer(investor, this.value, { from: owner });
@@ -258,39 +274,43 @@ contract('_StockupShareTokenManagerPurchase', function([
         await this.manager.buyTokens(this.amount, { from: investor });
       });
 
-      it('should withdraw raised by issuer', async function() {
-        await this.manager.withdraw(issuerWallet, this.value, { from: issuer });
+      it('should withdraw raised by admin', async function() {
+        await this.manager.withdraw(adminWallet, this.value, { from: admin });
+      });
+
+      it('reverts withdraw raised by manager', async function() {
+        await shouldFail.reverting(this.manager.withdraw(anyone, this.value, { from: manager }));
       });
 
       it('reverts withdraw raised by owner', async function() {
-        await shouldFail.reverting(this.manager.withdraw(issuerWallet, this.value, { from: owner }));
+        await shouldFail.reverting(this.manager.withdraw(owner, this.value, { from: owner }));
       });
 
       it('reverts withdraw raised by anyone', async function() {
-        await shouldFail.reverting(this.manager.withdraw(issuerWallet, this.value, { from: anyone }));
+        await shouldFail.reverting(this.manager.withdraw(anyone, this.value, { from: anyone }));
       });
 
       it('requires non-null raised beneficiary', async function() {
-        await shouldFail.reverting(this.manager.withdraw(ZERO_ADDRESS, this.value, { from: issuer }));
+        await shouldFail.reverting(this.manager.withdraw(ZERO_ADDRESS, this.value, { from: admin }));
       });
 
       it('requires non-null withdraw value', async function() {
-        await shouldFail.reverting(this.manager.withdraw(issuerWallet, new BN(0), { from: issuer }));
+        await shouldFail.reverting(this.manager.withdraw(adminWallet, new BN(0), { from: admin }));
       });
 
       context('when withdrawn raised', function() {
         beforeEach(async function() {
-          ({ logs: this.logs } = await this.manager.withdraw(issuerWallet, this.value, { from: issuer }));
+          ({ logs: this.logs } = await this.manager.withdraw(adminWallet, this.value, { from: admin }));
         });
 
-        it('should transfer withdrawn from contract to issuer wallet', async function() {
+        it('should transfer withdrawn from contract to admin wallet', async function() {
           (await this.acceptedToken.balanceOf(this.manager.address)).should.be.bignumber.equal(new BN(0));
-          (await this.acceptedToken.balanceOf(issuerWallet)).should.be.bignumber.equal(this.value);
+          (await this.acceptedToken.balanceOf(adminWallet)).should.be.bignumber.equal(this.value);
         });
 
         it('should log withdraw tokens event', async function() {
           expectEvent.inLogs(this.logs, 'WithdrawnRaised', {
-            wallet: issuerWallet,
+            wallet: adminWallet,
             value: this.value,
           });
         });

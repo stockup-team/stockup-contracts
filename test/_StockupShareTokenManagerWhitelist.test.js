@@ -6,7 +6,7 @@ const TestStableToken = artifacts.require('TestStableToken');
 const StockupShareToken = artifacts.require('StockupShareToken');
 const StockupInvestorsRegistry = artifacts.require('StockupInvestorsRegistry');
 
-contract('_StockupShareTokenManagerWhitelist', function([owner, issuer, investor, anyone]) {
+contract('_StockupShareTokenManagerWhitelist', function([owner, admin, manager, investor, anyone]) {
   const TOKEN_NAME = 'CompanyShareToken';
   const TOKEN_SYMBOL = 'CST';
   const RATE = ether('1');
@@ -20,10 +20,12 @@ contract('_StockupShareTokenManagerWhitelist', function([owner, issuer, investor
       this.token.address,
       this.acceptedToken.address,
       this.registry.address,
-      issuer,
+      admin,
       RATE,
       { from: owner },
     );
+
+    await this.manager.addManager(manager, { from: admin });
   });
 
   context('when issuer unverified', function() {
@@ -31,8 +33,16 @@ contract('_StockupShareTokenManagerWhitelist', function([owner, issuer, investor
       await this.registry.addInvestor(investor, { from: owner });
     });
 
-    it('reverts add investor account to whitelist by issuer', async function() {
-      await shouldFail.reverting(this.manager.addToWhitelist(investor, { from: issuer }));
+    it('reverts add investor account to whitelist by admin', async function() {
+      await shouldFail.reverting(this.manager.addToWhitelist(investor, { from: admin }));
+    });
+
+    it('reverts add investor account to whitelist by manager', async function() {
+      await shouldFail.reverting(this.manager.addToWhitelist(investor, { from: manager }));
+    });
+
+    it('reverts add investor account to whitelist by anyone', async function() {
+      await shouldFail.reverting(this.manager.addToWhitelist(investor, { from: anyone }));
     });
 
     it('should add investor account to whitelist by owner', async function() {
@@ -40,10 +50,24 @@ contract('_StockupShareTokenManagerWhitelist', function([owner, issuer, investor
       (await this.manager.isWhitelisted(investor)).should.be.equal(true);
     });
 
-    it('reverts remove investor account from whitelist by issuer', async function() {
+    it('reverts remove investor account from whitelist by admin', async function() {
       await this.manager.addToWhitelist(investor, { from: owner });
       (await this.manager.isWhitelisted(investor)).should.be.equal(true);
-      await shouldFail.reverting(this.manager.removeFromWhitelist(investor, { from: issuer }));
+      await shouldFail.reverting(this.manager.removeFromWhitelist(investor, { from: admin }));
+      (await this.manager.isWhitelisted(investor)).should.be.equal(true);
+    });
+
+    it('reverts remove investor account from whitelist by manager', async function() {
+      await this.manager.addToWhitelist(investor, { from: owner });
+      (await this.manager.isWhitelisted(investor)).should.be.equal(true);
+      await shouldFail.reverting(this.manager.removeFromWhitelist(investor, { from: manager }));
+      (await this.manager.isWhitelisted(investor)).should.be.equal(true);
+    });
+
+    it('reverts remove investor account from whitelist by anyone', async function() {
+      await this.manager.addToWhitelist(investor, { from: owner });
+      (await this.manager.isWhitelisted(investor)).should.be.equal(true);
+      await shouldFail.reverting(this.manager.removeFromWhitelist(investor, { from: anyone }));
       (await this.manager.isWhitelisted(investor)).should.be.equal(true);
     });
 
@@ -73,8 +97,12 @@ contract('_StockupShareTokenManagerWhitelist', function([owner, issuer, investor
         (await this.manager.isWhitelisted(investor)).should.be.equal(false);
       });
 
-      it('should add investor to whitelist by issuer', async function() {
-        await this.manager.addToWhitelist(investor, { from: issuer });
+      it('should add investor to whitelist by admin', async function() {
+        await this.manager.addToWhitelist(investor, { from: admin });
+      });
+
+      it('should add investor to whitelist by manager', async function() {
+        await this.manager.addToWhitelist(investor, { from: manager });
       });
 
       it('should add investor to whitelist by owner', async function() {
@@ -100,8 +128,12 @@ contract('_StockupShareTokenManagerWhitelist', function([owner, issuer, investor
           });
         });
 
-        it('should remove investor from whitelist by issuer', async function() {
-          await this.manager.removeFromWhitelist(investor, { from: issuer });
+        it('should remove investor from whitelist by admin', async function() {
+          await this.manager.removeFromWhitelist(investor, { from: admin });
+        });
+
+        it('should remove investor from whitelist by manager', async function() {
+          await this.manager.removeFromWhitelist(investor, { from: manager });
         });
 
         it('should remove investor from whitelist by owner', async function() {

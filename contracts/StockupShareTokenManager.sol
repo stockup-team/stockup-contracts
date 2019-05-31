@@ -2,7 +2,7 @@ pragma solidity ^0.5.2;
 
 import "openzeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
 import "openzeppelin-solidity/contracts/utils/ReentrancyGuard.sol";
-import "./access/IssuerOwnerRoles.sol";
+import "./access/TokenManagerRoles.sol";
 import "./lifecycle/Pausable.sol";
 import "./interface/IStockupInvestorsRegistry.sol";
 import "./interface/IStockupShareTokenERC20.sol";
@@ -11,7 +11,7 @@ import "./interface/IStockupShareTokenERC20.sol";
  * @title StockupShareTokenManager
  * @dev Contract for managing a share-token with tokensale functions.
  */
-contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard {
+contract StockupShareTokenManager is TokenManagerRoles, Pausable, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using SafeERC20 for IStockupShareTokenERC20;
@@ -87,17 +87,17 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
     * @param token Address of the token being sold
     * @param acceptedToken Address of the token being exchanged to token
     * @param investorsRegistry Address of investor registry contract
-    * @param issuer The address of issuer account
+    * @param admin The address of admin account
     * @param rate Number of accepted token's units per one token's unit
     */
     constructor(
         IStockupShareTokenERC20 token,
         IERC20 acceptedToken,
         IStockupInvestorsRegistry investorsRegistry,
-        address issuer,
+        address admin,
         uint256 rate
     )
-        public IssuerOwnerRoles(issuer)
+        public TokenManagerRoles(admin)
     {
         require(address(token) != address(0));
         require(address(acceptedToken) != address(0));
@@ -178,7 +178,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
      * @dev Adds single address to whitelist.
      * @param account Address to be added to the whitelist
      */
-    function addToWhitelist(address account) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
+    function addToWhitelist(address account) public onlyAdminOrManagerOrOwner whenIssuerVerifiedOrOwner {
         require(_investorsRegistry.isInvestor(account));
 
         _whitelist[account] = true;
@@ -189,7 +189,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
      * @dev Removes single address from whitelist.
      * @param account Address to be removed to the whitelist
      */
-    function removeFromWhitelist(address account) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
+    function removeFromWhitelist(address account) public onlyAdminOrManagerOrOwner whenIssuerVerifiedOrOwner {
         _whitelist[account] = false;
         emit WhitelistRemoved(account);
     }
@@ -221,7 +221,12 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         emit TokensPurchased(msg.sender, beneficiary, value, tokens);
     }
 
-    function transferTokensToBeneficiary(address beneficiary, uint256 amount) public onlyIssuer whenIssuerVerified {
+    function transferTokensToBeneficiary(
+        address beneficiary,
+        uint256 amount
+    )
+        public onlyAdminOrManager whenIssuerVerified
+    {
         _preValidatePurchase(beneficiary, amount);
 
         _token.safeTransfer(beneficiary, amount);
@@ -241,7 +246,7 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
         }
     }
 
-    function withdraw(address to, uint256 value) public onlyIssuer whenIssuerVerified {
+    function withdraw(address to, uint256 value) public onlyAdmin whenIssuerVerified {
         require(to != address(0));
         require(value > 0);
 
@@ -252,42 +257,42 @@ contract StockupShareTokenManager is IssuerOwnerRoles, Pausable, ReentrancyGuard
 
     // Manage token functions
 
-    function mintTokens(uint256 value) public onlyIssuer whenIssuerVerified {
+    function mintTokens(uint256 value) public onlyAdmin whenIssuerVerified {
         require(value > 0);
 
         require(_token.mint(address(this), value));
     }
 
-    function burnTokens(uint256 value) public onlyIssuer whenIssuerVerified {
+    function burnTokens(uint256 value) public onlyAdmin whenIssuerVerified {
         require(value > 0);
 
         _token.burn(value);
     }
 
-    function freezeTokens(address account) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
+    function freezeTokens(address account) public onlyAdminOrManagerOrOwner whenIssuerVerifiedOrOwner {
         require(_investorsRegistry.isInvestor(account));
 
         _token.freeze(account);
     }
 
-    function unfreezeTokens(address account) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
+    function unfreezeTokens(address account) public onlyAdminOrManagerOrOwner whenIssuerVerifiedOrOwner {
         require(_investorsRegistry.isInvestor(account));
 
         _token.unfreeze(account);
     }
 
-    function reissueTokens(address from, address to) public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
+    function reissueTokens(address from, address to) public onlyAdminOrOwner whenIssuerVerifiedOrOwner {
         require(_investorsRegistry.isInvestor(from));
         require(_investorsRegistry.isInvestor(to));
 
         require(_token.reissue(from, to));
     }
 
-    function pauseToken() public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
+    function pauseToken() public onlyAdminOrOwner whenIssuerVerifiedOrOwner {
         _token.pause();
     }
 
-    function unpauseToken() public onlyIssuerOrOwner whenIssuerVerifiedOrOwner {
+    function unpauseToken() public onlyAdminOrOwner whenIssuerVerifiedOrOwner {
         _token.unpause();
     }
 

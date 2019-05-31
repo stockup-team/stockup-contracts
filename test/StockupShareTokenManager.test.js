@@ -8,7 +8,7 @@ const TestStableToken = artifacts.require('TestStableToken');
 const StockupShareToken = artifacts.require('StockupShareToken');
 const StockupInvestorsRegistry = artifacts.require('StockupInvestorsRegistry');
 
-contract('StockupShareToken', function([owner, issuer, anyone]) {
+contract('StockupShareToken', function([owner, admin, anyone]) {
   const TOKEN_NAME = 'CompanyShareToken';
   const TOKEN_SYMBOL = 'CST';
   const RATE = ether('1');
@@ -22,7 +22,7 @@ contract('StockupShareToken', function([owner, issuer, anyone]) {
 
   it('requires a non-null token', async function() {
     await shouldFail.reverting(
-      StockupShareTokenManager.new(ZERO_ADDRESS, this.acceptedToken.address, this.registry.address, issuer, RATE, {
+      StockupShareTokenManager.new(ZERO_ADDRESS, this.acceptedToken.address, this.registry.address, admin, RATE, {
         from: owner,
       }),
     );
@@ -30,7 +30,7 @@ contract('StockupShareToken', function([owner, issuer, anyone]) {
 
   it('requires a non-null accepted token', async function() {
     await shouldFail.reverting(
-      StockupShareTokenManager.new(this.token.address, ZERO_ADDRESS, this.registry.address, issuer, RATE, {
+      StockupShareTokenManager.new(this.token.address, ZERO_ADDRESS, this.registry.address, admin, RATE, {
         from: owner,
       }),
     );
@@ -38,7 +38,7 @@ contract('StockupShareToken', function([owner, issuer, anyone]) {
 
   it('requires accepted token non-equal token', async function() {
     await shouldFail.reverting(
-      StockupShareTokenManager.new(this.token.address, this.token.address, this.registry.address, issuer, RATE, {
+      StockupShareTokenManager.new(this.token.address, this.token.address, this.registry.address, admin, RATE, {
         from: owner,
       }),
     );
@@ -46,13 +46,13 @@ contract('StockupShareToken', function([owner, issuer, anyone]) {
 
   it('requires a non-null registry', async function() {
     await shouldFail.reverting(
-      StockupShareTokenManager.new(this.token.address, this.acceptedToken.address, ZERO_ADDRESS, issuer, RATE, {
+      StockupShareTokenManager.new(this.token.address, this.acceptedToken.address, ZERO_ADDRESS, admin, RATE, {
         from: owner,
       }),
     );
   });
 
-  it('requires a non-null issuer', async function() {
+  it('requires a non-null admin account', async function() {
     await shouldFail.reverting(
       StockupShareTokenManager.new(
         this.token.address,
@@ -71,7 +71,7 @@ contract('StockupShareToken', function([owner, issuer, anyone]) {
         this.token.address,
         this.acceptedToken.address,
         this.registry.address,
-        issuer,
+        admin,
         new BN(0),
         { from: owner },
       ),
@@ -84,7 +84,7 @@ contract('StockupShareToken', function([owner, issuer, anyone]) {
         this.token.address,
         this.acceptedToken.address,
         this.registry.address,
-        issuer,
+        admin,
         RATE,
         { from: owner },
       );
@@ -98,7 +98,7 @@ contract('StockupShareToken', function([owner, issuer, anyone]) {
       (await this.manager.token()).should.be.equal(this.token.address);
       (await this.manager.acceptedToken()).should.be.equal(this.acceptedToken.address);
       (await this.manager.investorsRegistry()).should.be.equal(this.registry.address);
-      (await this.manager.issuer()).should.be.equal(issuer);
+      (await this.manager.isAdmin(admin)).should.be.equal(true);
       (await this.manager.rate()).should.be.bignumber.equal(RATE);
       (await this.token.totalSupply()).should.be.bignumber.equal(INITIAL_SUPPLY);
       (await this.token.balanceOf(this.manager.address)).should.be.bignumber.equal(INITIAL_SUPPLY);
@@ -114,8 +114,8 @@ contract('StockupShareToken', function([owner, issuer, anyone]) {
         await shouldFail.reverting(this.manager.verify({ from: anyone }));
       });
 
-      it('reverts verify by issuer', async function() {
-        await shouldFail.reverting(this.manager.verify({ from: issuer }));
+      it('reverts verify by admin', async function() {
+        await shouldFail.reverting(this.manager.verify({ from: admin }));
       });
 
       it('should verify issuer by owner', async function() {
