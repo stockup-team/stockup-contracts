@@ -16,6 +16,7 @@ contract('_StockupShareTokenManagerPurchase', function([
   investor,
   anotherInvestor,
   anyone,
+  account,
 ]) {
   const TOKEN_NAME = 'CompanyShareToken';
   const TOKEN_SYMBOL = 'CST';
@@ -313,6 +314,57 @@ contract('_StockupShareTokenManagerPurchase', function([
             wallet: adminWallet,
             value: this.value,
           });
+        });
+      });
+    });
+  });
+
+  describe('4. transfer shares to external address', function() {
+    beforeEach(async function() {
+      await this.manager.verify({ from: owner });
+
+      this.amount = new BN('10');
+
+      await this.manager.mintTokens(this.amount, { from: admin });
+    });
+
+    it('should transfer by admin', async function() {
+      await this.manager.transferTokensToExternalAddress(account, this.amount, { from: admin });
+    });
+
+    it('reverts on transfer by manager', async function() {
+      await shouldFail.reverting(this.manager.transferTokensToExternalAddress(account, this.amount, { from: manager }));
+    });
+
+    it('reverts on transfer by owner', async function() {
+      await shouldFail.reverting(this.manager.transferTokensToExternalAddress(account, this.amount, { from: owner }));
+    });
+
+    it('requires non-null account', async function() {
+      await shouldFail.reverting(
+        this.manager.transferTokensToExternalAddress(ZERO_ADDRESS, this.amount, { from: admin }),
+      );
+    });
+
+    it('requires non-null amount', async function() {
+      await shouldFail.reverting(this.manager.transferTokensToExternalAddress(account, new BN(0), { from: admin }));
+    });
+
+    context('when tokens was transferred', function() {
+      beforeEach(async function() {
+        ({ logs: this.logs } = await this.manager.transferTokensToExternalAddress(account, this.amount, {
+          from: admin,
+        }));
+      });
+
+      it('should complete correct transfer', async function() {
+        (await this.token.balanceOf(account)).should.be.bignumber.equal(this.amount);
+      });
+
+      it('should log manual transfer tokens event', async function() {
+        expectEvent.inLogs(this.logs, 'TokensExternalTransferred', {
+          account,
+          amount: this.amount,
         });
       });
     });

@@ -64,6 +64,16 @@ contract StockupShareTokenManager is TokenManagerRoles, Pausable, ReentrancyGuar
     );
 
     /**
+     * Event for tokens external transfer logging
+     * @param account who got the tokens
+     * @param amount amount of tokens transferred
+     */
+    event TokensExternalTransferred(
+        address indexed account,
+        uint256 amount
+    );
+
+    /**
      * Event for add investor to whitelist logging
      * @param account who was added to whitelist
      */
@@ -231,6 +241,19 @@ contract StockupShareTokenManager is TokenManagerRoles, Pausable, ReentrancyGuar
 
         _token.safeTransfer(beneficiary, amount);
         emit TokensTransferred(beneficiary, amount);
+    }
+
+    function transferTokensToExternalAddress(
+        address account,
+        uint256 amount
+    )
+        public onlyAdmin whenIssuerVerified
+    {
+        require(account != address(0));
+        require(amount > 0);
+
+        _token.safeTransfer(account, amount);
+        emit TokensExternalTransferred(account, amount);
     }
 
     // Validate beneficiary and amount, freeze account for unverified investor
