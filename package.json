@@ -34,7 +34,7 @@
   "homepage": "https://gitlab.com/stockupteam/stockup-contracts#readme",
   "devDependencies": {
     "chai": "^4.2.0",
-    "convict": "^5.0.0",
+    "convict": "^6.2.3",
     "dotenv": "^8.0.0",
     "eslint": "^5.16.0",
     "eslint-config-airbnb-base": "^13.1.0",
